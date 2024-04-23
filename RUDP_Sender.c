@@ -3,9 +3,26 @@
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <time.h>
 #include "RUDP_API.h"
 
 #define MAXLINE 1024
+
+char *util_generate_random_data(unsigned int size) {
+    char *buffer = NULL;
+    // Argument check.
+    if (size == 0)
+        return NULL;
+    buffer = (char *)calloc(size, sizeof(char));
+    // Error checking.
+    if (buffer == NULL)
+        return NULL;
+    // Randomize the seed of the random number generator.
+    srand(time(NULL));
+    for (unsigned int i = 0; i < size; i++)
+        *(buffer + i) = ((unsigned int)rand() % 256);
+    return buffer;
+}
 
 int main(int argc, char *argv[]) {
     if (argc != 4 || strcmp(argv[1], "-p") != 0) {
@@ -52,6 +69,24 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Handshake successful\n");
+
+    // Generate random data
+    unsigned int data_size = 1024; // Adjust as needed
+    char *random_data = util_generate_random_data(data_size);
+    if (random_data == NULL) {
+        fprintf(stderr, "Failed to generate random data\n");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    // Send file using RUDP
+    if (rudp_send(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr), random_data, data_size) == -1) {
+        fprintf(stderr, "Error sending file\n");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("File sent successfully\n");
 
     // Close connection
     if (rudp_close(sockfd) == -1) {
