@@ -58,41 +58,45 @@ int main(int argc, char *argv[]) {
 
     printf("Handshake message sent\n");
 
-    // Receive handshake acknowledgment
-    char ack_msg[5]; // Assuming acknowledgment message size is 5 bytes
-    socklen_t addrlen = sizeof(servaddr);
-    int bytes_received = recvfrom(sockfd, ack_msg, sizeof(ack_msg), 0, (struct sockaddr *)&servaddr, &addrlen);
-    if (bytes_received == -1) {
-        perror("Error receiving handshake acknowledgment");
-        close(sockfd);
-        exit(EXIT_FAILURE);
+    while (1) {
+        // Generate random data
+        unsigned int data_size = 1024; // Adjust as needed
+        char *random_data = util_generate_random_data(data_size);
+        if (random_data == NULL) {
+            fprintf(stderr, "Failed to generate random data\n");
+            close(sockfd);
+            exit(EXIT_FAILURE);
+        }
+
+        // Send file using RUDP
+        if (rudp_send(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr), random_data, data_size) == -1) {
+            fprintf(stderr, "Error sending file\n");
+            close(sockfd);
+            exit(EXIT_FAILURE);
+        }
+
+        printf("File sent successfully\n");
+        free(random_data);
+
+        // Ask user if they want to send another file
+        char user_input[MAXLINE];
+        printf("Do you want to send another file? (Y/N): ");
+        fgets(user_input, MAXLINE, stdin);
+        strtok(user_input, "\n"); // Remove newline character
+
+        // Check if sender should exit
+        if (strcmp(user_input, "N") == 0 || strcmp(user_input, "n") == 0) {
+            // Send user choice to receiver
+            if (rudp_send(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr), "exit", strlen("exit") + 1) == -1) {
+                perror("Error sending exit message");
+                close(sockfd);
+                exit(EXIT_FAILURE);
+            }
+            printf("Exit message sent. Sender end.\n");
+            break;
+        }
     }
 
-    printf("Handshake successful\n");
-
-    // Generate random data
-    unsigned int data_size = 1024; // Adjust as needed
-    char *random_data = util_generate_random_data(data_size);
-    if (random_data == NULL) {
-        fprintf(stderr, "Failed to generate random data\n");
-        close(sockfd);
-        exit(EXIT_FAILURE);
-    }
-
-    // Send file using RUDP
-    if (rudp_send(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr), random_data, data_size) == -1) {
-        fprintf(stderr, "Error sending file\n");
-        close(sockfd);
-        exit(EXIT_FAILURE);
-    }
-
-    printf("File sent successfully\n");
-
-    // Close connection
-    if (rudp_close(sockfd) == -1) {
-        fprintf(stderr, "Failed to close RUDP connection\n");
-        exit(EXIT_FAILURE);
-    }
-
+    close(sockfd);
     return 0;
 }

@@ -28,40 +28,33 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // Receive handshake message
-    char handshake_msg[5]; // Assuming handshake message size is 5 bytes
-    socklen_t addrlen = sizeof(cliaddr);
-    int bytes_received = recvfrom(sockfd, handshake_msg, sizeof(handshake_msg), 0, (struct sockaddr *)&cliaddr, &addrlen);
-    if (bytes_received == -1) {
-        perror("Error receiving handshake message");
-        close(sockfd);
+    // Perform handshake
+    if (rudp_handshake(sockfd, (struct sockaddr *)&cliaddr, clilen) == -1) {
+        fprintf(stderr, "Handshake failed\n");
         exit(EXIT_FAILURE);
     }
 
-    printf("Handshake message received\n");
-
-    // Send handshake acknowledgment
-    char ack_msg[5] = "ACK"; // Example acknowledgment message
-    if (sendto(sockfd, ack_msg, sizeof(ack_msg), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) == -1) {
-        perror("Error sending handshake acknowledgment");
-        close(sockfd);
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Handshake acknowledgment sent\n");
+    printf("Handshake successful\n");
 
     printf("Waiting for data...\n");
 
-    // Receive file using RUDP
-    char received_data[MAXLINE];
-    bytes_received = rudp_recv(sockfd, (struct sockaddr *)&cliaddr, &clilen, received_data, MAXLINE);
-    if (bytes_received == -1) {
-        fprintf(stderr, "Error receiving file\n");
-        rudp_close(sockfd);
-        exit(EXIT_FAILURE);
-    }
+    while (1) {
+        // Receive file using RUDP
+        char received_data[MAXLINE];
+        int bytes_received = rudp_recv(sockfd, (struct sockaddr *)&cliaddr, &clilen, received_data, MAXLINE);
+        if (bytes_received == -1) {
+            fprintf(stderr, "Error receiving file\n");
+            rudp_close(sockfd);
+            exit(EXIT_FAILURE);
+        }
 
-    printf("File received successfully\n");
+        printf("Received file from sender\n");
+
+        if (strcmp(received_data, "exit") == 0) {
+            printf("Sender sent exit message\n");
+            break;
+        }
+    }
 
     // Close connection
     if (rudp_close(sockfd) == -1) {

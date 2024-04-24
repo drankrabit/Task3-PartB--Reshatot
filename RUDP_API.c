@@ -5,6 +5,9 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include "RUDP_API.h"
+#include <sys/time.h>
+#include <sys/select.h>
+#include <errno.h>
 
 #define HEADER_SIZE 5
 
@@ -16,6 +19,14 @@ int rudp_socket(int port) {
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == -1) {
         perror("Socket creation failed");
+        return -1;
+    }
+
+    // Allow address reuse
+    int enable = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0) {
+        perror("setsockopt(SO_REUSEADDR) failed");
+        close(sockfd);
         return -1;
     }
 
@@ -35,15 +46,50 @@ int rudp_socket(int port) {
     return sockfd;
 }
 
-int rudp_send(int sockfd, struct sockaddr *addr, socklen_t addrlen, const void *data, size_t length) {
-    // Implementation of rudp_send
-    // For simplicity, I'll provide a basic implementation without retransmission logic and header construction.
-    ssize_t bytes_sent = sendto(sockfd, data, length, 0, addr, addrlen);
-    if (bytes_sent == -1) {
-        perror("Error sending data");
+int rudp_handshake(int sockfd, struct sockaddr *addr, socklen_t addrlen) {
+    char handshake_msg[5]; // Assuming handshake message size is 5 bytes
+
+    // Receive handshake message
+    ssize_t bytes_received = recvfrom(sockfd, handshake_msg, sizeof(handshake_msg), 0, addr, &addrlen);
+    if (bytes_received == -1) {
+        perror("Error receiving handshake message");
         return -1;
     }
+
+    printf("Handshake message received\n");
+
+    // Send handshake acknowledgment
+    char ack_msg[5] = "ACK"; // Example acknowledgment message
+    if (sendto(sockfd, ack_msg, sizeof(ack_msg), 0, addr, addrlen) == -1) {
+        perror("Error sending handshake acknowledgment");
+        return -1;
+    }
+
+    printf("Handshake acknowledgment sent\n");
+
     return 0;
+}
+
+int rudp_send(int sockfd, struct sockaddr *addr, socklen_t addrlen, const void *data, size_t length) {
+    // Check if the data is the "exit" message
+    if (strcmp(data, "exit") == 0) {
+        // Send "exit" message
+        ssize_t bytes_sent = sendto(sockfd, data, strlen(data) + 1, 0, addr, addrlen);
+        if (bytes_sent == -1) {
+            perror("Error sending exit message");
+            return -1;
+        }
+        return 0;
+    }
+    // Otherwise, send data as usual
+    else {
+        ssize_t bytes_sent = sendto(sockfd, data, length, 0, addr, addrlen);
+        if (bytes_sent == -1) {
+            perror("Error sending data");
+            return -1;
+        }
+        return 0;
+    }
 }
 
 int rudp_recv(int sockfd, struct sockaddr *addr, socklen_t *addrlen, void *buffer, size_t length) {
