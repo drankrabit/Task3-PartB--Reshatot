@@ -5,8 +5,10 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include "RUDP_API.h"
+#include <sys/time.h> // Include this for timeval
 
 #define MAXLINE 1024
+#define TIMEOUT_SEC 5
 
 char *util_generate_random_data(unsigned int size) {
     char *buffer = NULL;
@@ -77,6 +79,42 @@ int main(int argc, char *argv[]) {
 
         printf("File sent successfully\n");
         free(random_data);
+
+        // Wait for acknowledgment message "ACK" from the receiver
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(sockfd, &readfds);
+
+        struct timeval timeout;
+        timeout.tv_sec = TIMEOUT_SEC;
+        timeout.tv_usec = 0;
+
+        // Wait for data or timeout
+        int activity = select(sockfd + 1, &readfds, NULL, NULL, &timeout);
+
+        if (activity < 0) {
+            perror("select error");
+            exit(EXIT_FAILURE);
+        } else if (activity == 0) {
+            printf("Timeout occurred. No acknowledgment received from receiver.\n");
+            break;
+        } else {
+            if (FD_ISSET(sockfd, &readfds)) {
+                char ack_msg[4]; // Acknowledgment message
+                int bytes_received = recvfrom(sockfd, ack_msg, sizeof(ack_msg), 0, NULL, NULL);
+                if (bytes_received == -1) {
+                    perror("Error receiving acknowledgment");
+                    close(sockfd);
+                    exit(EXIT_FAILURE);
+                }
+
+                if (strcmp(ack_msg, "ACK") == 0) {
+                    printf("Acknowledgment received\n");
+                } else {
+                    printf("Invalid acknowledgment received\n");
+                }
+            }
+        }
 
         // Ask user if they want to send another file
         char user_input[MAXLINE];

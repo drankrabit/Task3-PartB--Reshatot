@@ -4,8 +4,10 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "RUDP_API.h"
+#include <sys/time.h> // Include this for timeval
 
 #define MAXLINE 1024
+#define TIMEOUT_SEC 5
 
 int main(int argc, char *argv[]) {
     if (argc != 3 || strcmp(argv[1], "-p") != 0) {
@@ -39,20 +41,51 @@ int main(int argc, char *argv[]) {
     printf("Waiting for data...\n");
 
     while (1) {
-        // Receive file using RUDP
-        char received_data[MAXLINE];
-        int bytes_received = rudp_recv(sockfd, (struct sockaddr *)&cliaddr, &clilen, received_data, MAXLINE);
-        if (bytes_received == -1) {
-            fprintf(stderr, "Error receiving file\n");
-            rudp_close(sockfd);
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(sockfd, &readfds);
+
+        struct timeval timeout;
+        timeout.tv_sec = TIMEOUT_SEC;
+        timeout.tv_usec = 0;
+
+        // Wait for data or timeout
+        int activity = select(sockfd + 1, &readfds, NULL, NULL, &timeout);
+
+        if (activity < 0) {
+            perror("select error");
             exit(EXIT_FAILURE);
-        }
-
-        printf("Received file from sender\n");
-
-        if (strcmp(received_data, "exit") == 0) {
-            printf("Sender sent exit message\n");
+        } else if (activity == 0) {
+            printf("Timeout occurred. No data received from sender.\n");
             break;
+        } else {
+            if (FD_ISSET(sockfd, &readfds)) {
+                // Receive file using RUDP
+                char received_data[MAXLINE];
+                int bytes_received = rudp_recv(sockfd, (struct sockaddr *)&cliaddr, &clilen, received_data, MAXLINE);
+                if (bytes_received == -1) {
+                    fprintf(stderr, "Error receiving file\n");
+                    rudp_close(sockfd);
+                    exit(EXIT_FAILURE);
+                }
+
+                printf("Received file from sender\n");
+
+                // Send acknowledgment message back to the sender
+                char ack_msg[4] = "ACK"; // Acknowledgment message
+                if (rudp_send(sockfd, (struct sockaddr *)&cliaddr, clilen, ack_msg, strlen(ack_msg)) == -1) {
+                    fprintf(stderr, "Error sending acknowledgment\n");
+                    rudp_close(sockfd);
+                    exit(EXIT_FAILURE);
+                }
+
+                printf("Acknowledgment sent\n");
+
+                if (strcmp(received_data, "exit") == 0) {
+                    printf("Sender sent exit message\n");
+                    break;
+                }
+            }
         }
     }
 
