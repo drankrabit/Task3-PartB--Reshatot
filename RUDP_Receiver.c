@@ -3,8 +3,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
+#include <sys/select.h>
+#include <errno.h>
 #include "RUDP_API.h"
-#include <sys/time.h> // Include this for timeval
 
 #define MAXLINE 1024
 #define TIMEOUT_SEC 5
@@ -30,11 +32,26 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // Perform handshake
-    if (rudp_handshake(sockfd, (struct sockaddr *)&cliaddr, clilen) == -1) {
-        fprintf(stderr, "Handshake failed\n");
+    // Receive handshake message
+    char handshake_msg[5]; // Assuming handshake message size is 5 bytes
+    ssize_t bytes_received = recvfrom(sockfd, handshake_msg, sizeof(handshake_msg), 0, (struct sockaddr *)&cliaddr, &clilen);
+    if (bytes_received == -1) {
+        perror("Error receiving handshake message");
+        close(sockfd);
         exit(EXIT_FAILURE);
     }
+
+    printf("Handshake message received\n");
+
+    // Send handshake acknowledgment
+    char ack_msg[5] = "ACK"; // Example acknowledgment message
+    if (sendto(sockfd, ack_msg, sizeof(ack_msg), 0, (struct sockaddr *)&cliaddr, clilen) == -1) {
+        perror("Error sending handshake acknowledgment");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Handshake acknowledgment sent\n");
 
     printf("Handshake successful\n");
 

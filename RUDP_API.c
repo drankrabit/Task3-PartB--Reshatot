@@ -46,30 +46,6 @@ int rudp_socket(int port) {
     return sockfd;
 }
 
-int rudp_handshake(int sockfd, struct sockaddr *addr, socklen_t addrlen) {
-    char handshake_msg[5]; // Assuming handshake message size is 5 bytes
-
-    // Receive handshake message
-    ssize_t bytes_received = recvfrom(sockfd, handshake_msg, sizeof(handshake_msg), 0, addr, &addrlen);
-    if (bytes_received == -1) {
-        perror("Error receiving handshake message");
-        return -1;
-    }
-
-    printf("Handshake message received\n");
-
-    // Send handshake acknowledgment
-    char ack_msg[5] = "ACK"; // Example acknowledgment message
-    if (sendto(sockfd, ack_msg, sizeof(ack_msg), 0, addr, addrlen) == -1) {
-        perror("Error sending handshake acknowledgment");
-        return -1;
-    }
-
-    printf("Handshake acknowledgment sent\n");
-
-    return 0;
-}
-
 int rudp_send(int sockfd, struct sockaddr *addr, socklen_t addrlen, const void *data, size_t length) {
     // Check if the data is the "exit" message
     if (strcmp(data, "exit") == 0) {
