@@ -4,12 +4,11 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <time.h>
-#include "RUDP_API.h"
 #include <sys/time.h>
 #include <sys/select.h>
 #include <errno.h>
+#include "RUDP_API.h"
 
-#define HEADER_SIZE 5
 
 int rudp_socket(int port) {
     int sockfd;
@@ -70,7 +69,6 @@ int rudp_send(int sockfd, struct sockaddr *addr, socklen_t addrlen, const void *
 
 int rudp_recv(int sockfd, struct sockaddr *addr, socklen_t *addrlen, void *buffer, size_t length) {
     // Implementation of rudp_recv
-    // For simplicity, I'll provide a basic implementation without header parsing.
     ssize_t bytes_received = recvfrom(sockfd, buffer, length, 0, addr, addrlen);
     if (bytes_received == -1) {
         perror("Error receiving data");

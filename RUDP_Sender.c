@@ -3,12 +3,13 @@
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
+#include <sys/select.h>
 #include <time.h>
 #include "RUDP_API.h"
-#include <sys/time.h> // Include this for timeval
 
 #define MAXLINE 1024
-#define TIMEOUT_SEC 5
+#define TIMEOUT_SEC 10
 
 char *util_generate_random_data(unsigned int size) {
     char *buffer = NULL;
@@ -27,12 +28,12 @@ char *util_generate_random_data(unsigned int size) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 4 || strcmp(argv[1], "-p") != 0) {
-        fprintf(stderr, "Usage: %s -p PORT <IP>\n", argv[0]);
+    if (argc != 5 || strcmp(argv[1], "-ip") != 0 || strcmp(argv[3], "-p") != 0) {
+        fprintf(stderr, "Usage: %s -ip IP -p PORT\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-    int port = atoi(argv[2]);
-    char *ip = argv[3];
+    char *ip = argv[2];
+    int port = atoi(argv[4]);
 
     int sockfd;
     struct sockaddr_in servaddr;
@@ -58,7 +59,10 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Handshake message sent\n");
+    printf("Starting Sender\n");
+    printf("Searching for RUDP connection...\n");
+    printf("Found RUDP connection\n");
+    printf("Sending handshake message...\n");
 
     while (1) {
         // Generate random data
@@ -133,6 +137,8 @@ int main(int argc, char *argv[]) {
             printf("Exit message sent. Sender end.\n");
             break;
         }
+        
+        printf("Continue message sent.\n");
     }
 
     close(sockfd);

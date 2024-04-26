@@ -18,9 +18,6 @@ typedef struct {
 // RUDP socket creation and performing a handshake
 int rudp_socket(int port);
 
-// Handshake with peer
-int rudp_handshake(int sockfd, struct sockaddr *addr, socklen_t addrlen);
-
 // Send data to the peer
 int rudp_send(int sockfd, struct sockaddr *addr, socklen_t addrlen, const void *data, size_t length);
 
